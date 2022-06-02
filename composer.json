@@ -1,0 +1,23 @@
+{
+    "name": "micro/plugin-http",
+    "description": "Micro Framework: Provides a component for building MVC aplication based on HTTP(s) protocol",
+    "type": "library",
+    "version": "0.1",
+    "require": {
+        "symfony/yaml": "^5|^6",
+        "symfony/routing": "^5|^6",
+        "symfony/http-foundation": "^5|^6"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Micro\\Plugin\\Http\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Stanislau Komar",
+            "email": "stanislau_komar@epam.com"
+        }
+    ]
+}
