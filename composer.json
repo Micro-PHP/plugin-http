@@ -4,6 +4,7 @@
     "type": "library",
     "version": "0.1",
     "require": {
+        "micro/kernel": "^1",
         "micro/plugin-logger-core": "0.*",
         "micro/plugin-configuration-helper": "^1",
         "symfony/yaml": "^5|^6",
