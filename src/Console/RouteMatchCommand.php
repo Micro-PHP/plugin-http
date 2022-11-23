@@ -4,9 +4,11 @@ namespace Micro\Plugin\Http\Console;
 
 use Micro\Plugin\Http\Facade\HttpFacadeInterface;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Routing\Route;
 
 class RouteMatchCommand extends Command
 {
@@ -40,8 +42,28 @@ class RouteMatchCommand extends Command
             ->build()
         ;
 
+        /** @var Route $result */
         $result = $this->httpFacade->match($request);
 
-        dump($result); exit;
+        $table = new Table($output);
+        $table->setHeaders([
+            'Path',
+            'Methods',
+            'Controller'
+        ]);
+
+        $opts = $result->getOption('options');
+
+        $table->addRow(
+            [
+                $result->getPath(),
+                implode("\n", $result->getMethods()),
+                $opts['controller'] . '::' . $opts['action'],
+            ]
+        );
+
+        $table->render();
+
+        return self::SUCCESS;
     }
 }

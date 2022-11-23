@@ -4,6 +4,8 @@
     "type": "library",
     "version": "0.1",
     "require": {
+        "micro/plugin-logger-core": "0.*",
+        "micro/plugin-configuration-helper": "^1",
         "symfony/yaml": "^5|^6",
         "symfony/routing": "^5|^6",
         "symfony/http-foundation": "^5|^6"

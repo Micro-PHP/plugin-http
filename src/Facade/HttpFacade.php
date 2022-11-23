@@ -18,6 +18,7 @@ class HttpFacade implements HttpFacadeInterface
      * @param RequestHandlerFactoryInterface $requestHandlerFactory
      * @param RequestBuilderFactoryInterface $requestBuilderFactory
      * @param UrlGeneratorFactoryInterface $urlGeneratorFactory
+     * @param ContainerRegistryInterface $containerRegistry
      */
     public function __construct(
         private readonly UrlMatcherFactoryInterface $matcherFactory,
@@ -42,7 +43,9 @@ class HttpFacade implements HttpFacadeInterface
      */
     public function handleRequest(Request $request): void
     {
-        $this->requestHandlerFactory->create($this->containerRegistry)->handleRequest($request);
+        $this->requestHandlerFactory
+            ->create($this->containerRegistry)
+            ->handleRequest($request);
     }
 
     /**

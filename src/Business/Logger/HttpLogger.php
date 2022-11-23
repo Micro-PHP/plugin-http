@@ -27,6 +27,7 @@ class HttpLogger implements HttpLoggerInterface
      */
     public function access(Request $request, Response $response, array $context = []): void
     {
+        $this->fillContextOptions($context, $request);
         $this->loggerFacade->getLogger($this->httpPluginConfiguration->getLoggerNameAccess())
             ->info(
                 $this->createBaseMessage($request, $response),
@@ -39,6 +40,7 @@ class HttpLogger implements HttpLoggerInterface
      */
     public function warning(Request $request, ?Response $response, string $message = null, array $context = []): void
     {
+        $this->fillContextOptions($context, $request);
         $this->loggerFacade->getLogger($this->httpPluginConfiguration->getLoggerNameError())->warning(
             $this->createBaseMessage($request, $response) . ' Message: ' . $message,
             $context
@@ -50,10 +52,27 @@ class HttpLogger implements HttpLoggerInterface
      */
     public function error(\Throwable $e, Request $request, ?Response $response = null, array $context = []): void
     {
+        $this->fillContextOptions($context, $request);
         $this->loggerFacade->getLogger($this->httpPluginConfiguration->getLoggerNameError())->critical(
             $e->getMessage(),
             $context
         );
+    }
+
+    protected function fillContextOptions(array &$context, Request $request): void
+    {
+        $contextOptions = [
+            'remote_ip' => $request->getClientIp(),
+//            'headers'   => iterator_to_array($request->headers->getIterator()),
+        ];
+
+        foreach ($contextOptions as $option => $optionValue) {
+            if(isset($context[$option])) {
+                continue;
+            }
+
+            $context[$option] = $optionValue;
+        }
     }
 
     /**

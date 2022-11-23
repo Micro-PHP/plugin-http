@@ -13,7 +13,7 @@ class RouteResourceConfiguration implements RouteResourceConfigurationInterface
      * @param array $handlers
      */
     public function __construct(
-        private readonly string $resource,
+        private string $resource,
         private readonly string $format,
         private string $prefix,
         private readonly string $parentFileDestination,
@@ -33,7 +33,7 @@ class RouteResourceConfiguration implements RouteResourceConfigurationInterface
         }
 
         foreach ($handlers as $handlerName => $handlerContent) {
-            if(!$this->handlers[$handlerName]) {
+            if(!isset($this->handlers[$handlerName])) {
                 $this->handlers[$handlerName] = [];
             }
 
@@ -117,5 +117,13 @@ class RouteResourceConfiguration implements RouteResourceConfigurationInterface
     public function getHost(): ?string
     {
         return $this->host;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function setResource(string $resource): void
+    {
+        $this->resource = $resource;
     }
 }

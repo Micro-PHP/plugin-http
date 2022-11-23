@@ -3,18 +3,20 @@
 namespace Micro\Plugin\Http\Business\RouteProvider;
 
 
+use Micro\Plugin\Configuration\Helper\Facade\ConfigurationHelperFacadeInterface;
 use Micro\Plugin\Http\Business\RouteConfiguration\ReaderResolverInterface;
 
 class RouteProviderFactory implements RouteProviderFactoryInterface
 {
     /**
      * @param ReaderResolverInterface $readerResolver
+     * @param ConfigurationHelperFacadeInterface $configurationHelperFacade
      * @param iterable $routeConfigurationDestinationCollection
      */
     public function __construct(
         private readonly ReaderResolverInterface $readerResolver,
-        private readonly iterable $routeConfigurationDestinationCollection
-
+        private readonly ConfigurationHelperFacadeInterface $configurationHelperFacade,
+        private readonly iterable $routeConfigurationDestinationCollection,
     )
     {
     }
@@ -26,7 +28,8 @@ class RouteProviderFactory implements RouteProviderFactoryInterface
     {
         return new RouteProvider(
             $this->routeConfigurationDestinationCollection,
-            $this->readerResolver
+            $this->readerResolver,
+            $this->configurationHelperFacade
         );
     }
 }

@@ -8,6 +8,21 @@ interface HttpPluginConfigurationInterface
     const EXT_YML = 'yml';
 
     /**
+     * @return bool
+     */
+    public function isProductionMode(): bool;
+
+    /**
+     * @return string
+     */
+    public function getRouteCacheFile(): string;
+
+    /**
+     * @return string
+     */
+    public function getRouteCacheDir(): string;
+
+    /**
      * @return string
      */
     public function getRouteConfigurationExtension(): string;

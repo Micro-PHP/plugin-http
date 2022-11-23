@@ -17,6 +17,13 @@ interface RouteResourceConfigurationInterface
     public function addParentPrefix(string $prefix): void;
 
     /**
+     * @param string $resource
+     * @return void
+     *
+     */
+    public function setResource(string $resource): void;
+
+    /**
      * @return string
      */
     public function getResource(): string;

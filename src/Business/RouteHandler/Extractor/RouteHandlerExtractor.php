@@ -42,7 +42,6 @@ class RouteHandlerExtractor implements RouteHandlerExtractorInterface
     protected function extractHandlers(Route $route, string $handlerType): Generator
     {
         foreach ($this->extractHandlersClasses($route, $handlerType) as $handler) {
-
             yield $this->handlerAbstractFactory->create($handler);
         }
     }
@@ -55,8 +54,8 @@ class RouteHandlerExtractor implements RouteHandlerExtractorInterface
      */
     protected function extractHandlersClasses(Route $route, string $handlerType): array
     {
-        $handlers = $route->getOption(self::OPT_ROUTE_HANDLER);
+        $handlers = $route->getOption('options');
 
-        return $handlers[$handlerType] ?? [];
+        return $handlers[self::OPT_ROUTE_HANDLER][$handlerType] ?? [];
     }
 }

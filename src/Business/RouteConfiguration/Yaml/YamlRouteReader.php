@@ -2,6 +2,7 @@
 
 namespace Micro\Plugin\Http\Business\RouteConfiguration\Yaml;
 
+use Micro\Plugin\Configuration\Helper\Facade\ConfigurationHelperFacadeInterface;
 use Micro\Plugin\Http\Business\RouteConfiguration\RouteConfiguration;
 use Micro\Plugin\Http\Business\RouteConfiguration\RouteConfigurationInterface;
 use Micro\Plugin\Http\Business\RouteConfiguration\RouteConfigurationReaderInterface;
@@ -18,6 +19,13 @@ class YamlRouteReader implements RouteConfigurationReaderInterface
     const SECTION_HANDLER = 'handler';
 
     /**
+     * @param ConfigurationHelperFacadeInterface $configurationHelperFacade
+     */
+    public function __construct(private readonly ConfigurationHelperFacadeInterface $configurationHelperFacade)
+    {
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function read(RouteResourceConfigurationInterface $routeResourceConfiguration): iterable
@@ -31,11 +39,12 @@ class YamlRouteReader implements RouteConfigurationReaderInterface
 
         foreach ($routes as $name => $routeConfiguration) {
             if(isset($routeConfiguration[self::SECTION_ROUTE_RESOURCE_DEST])) {
+                $tmpDest = dirname(realpath($destination));
 
                 $childResource = $this->createRouteResourceConfiguration(
                     $name,
                     $routeConfiguration,
-                    dirname(realpath($destination)),
+                    $tmpDest,
                 );
 
                 $childResource->addParentHandlers($parentHandlers);
@@ -63,7 +72,6 @@ class YamlRouteReader implements RouteConfigurationReaderInterface
     protected function createRouteConfiguration(string $name, array $config, ?string $host, array $parentHandlers): RouteConfigurationInterface
     {
         $priority = $parameters['priority'] ?? 0;
-        //$handlers = array_merge($parentHandlers, $config[self::SECTION_HANDLER] ?? []);
         $routeConfiguration = new RouteConfiguration(
             $name,
             $config,
@@ -102,13 +110,16 @@ class YamlRouteReader implements RouteConfigurationReaderInterface
         }
 
         if(!$exceptions) {
+            $tmp = $config[self::SECTION_ROUTE_RESOURCE_DEST] ?? '';
+            $currentFileDestination = !str_starts_with($tmp, '@') ? $currentFileDestination : '';
+
             return new RouteResourceConfiguration(
                 $config[self::SECTION_ROUTE_RESOURCE_DEST],
                 $config[self::SECTION_ROUTE_RESOURCE_EXT] ?? '',
                 $config[self::SECTION_ROUTE_RESOURCE_PREFIX] ?? '',
                 $currentFileDestination,
                 $config['host'] ?? null,
-                $config[self::SECTION_HANDLER] ?? []
+                $config['options'][self::SECTION_HANDLER] ?? []
             );
         }
 
@@ -130,6 +141,6 @@ class YamlRouteReader implements RouteConfigurationReaderInterface
      */
     protected function parseFile(string $fileDestination): array
     {
-        return Yaml::parseFile($fileDestination);
+        return Yaml::parseFile($this->configurationHelperFacade->resolvePath($fileDestination));
     }
 }

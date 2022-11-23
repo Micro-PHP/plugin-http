@@ -23,4 +23,11 @@ interface ResponseHandlerContextInterface extends HandlerContextInterface
      * @return Throwable|null
      */
     public function getException(): ?Throwable;
+
+    /**
+     * @param Throwable|null $throwable
+     *
+     * @return void
+     */
+    public function setException(?Throwable $throwable): void;
 }

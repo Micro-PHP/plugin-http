@@ -32,7 +32,7 @@ class RouteConfiguration implements RouteConfigurationInterface
         }
 
         foreach ($handlers as $handlerName => $handlerContent) {
-            if(!$this->handlers[$handlerName]) {
+            if(!isset($this->handlers[$handlerName])) {
                 $this->handlers[$handlerName] = [];
             }
 

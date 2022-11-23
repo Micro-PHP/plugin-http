@@ -16,7 +16,7 @@ class ResponseHandlerContext extends AbstractHandlerContext implements ResponseH
     public function __construct(
         Request $request,
         private mixed $response,
-        private readonly ?\Throwable $throwable
+        private ?\Throwable $throwable
     )
     {
         parent::__construct($request);
@@ -39,12 +39,18 @@ class ResponseHandlerContext extends AbstractHandlerContext implements ResponseH
     }
 
     /**
-     * @param mixed $response
-     *
-     * @return void
+     * {@inheritDoc}
      */
     public function setResponse(mixed $response): void
     {
         $this->response = $response;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function setException(?Throwable $throwable): void
+    {
+        $this->throwable = $throwable;
     }
 }

@@ -7,8 +7,8 @@ use Micro\Component\DependencyInjection\Autowire\AutowireHelperFactoryInterface;
 use Micro\Component\DependencyInjection\Container;
 use Micro\Component\EventEmitter\ListenerProviderInterface;
 use Micro\Framework\Kernel\Plugin\AbstractPlugin;
-use Micro\Kernel\App\Business\ApplicationListenerProviderPluginInterface;
-use Micro\Plugin\Amqp\Business\EventListener\ListenerProvider;
+use Micro\Kernel\App\Listener\ApplicationListenerProviderPluginInterface;
+use Micro\Plugin\Configuration\Helper\Facade\ConfigurationHelperFacadeInterface;
 use Micro\Plugin\Console\CommandProviderInterface;
 use Micro\Plugin\Http\Business\Context\RequestContextFactory;
 use Micro\Plugin\Http\Business\Context\RequestContextFactoryInterface;
@@ -42,11 +42,14 @@ use Micro\Plugin\Http\Facade\HttpFacadeInterface;
 use Micro\Plugin\Http\Handler\HandlerAbstractFactory;
 use Micro\Plugin\Http\Handler\HandlerAbstractFactoryInterface;
 use Micro\Plugin\Http\Listener\ApplicationStartListener;
+use Micro\Plugin\Http\Listener\ListenerProvider;
 use Micro\Plugin\Logger\LoggerFacadeInterface;
 use Psr\Container\ContainerInterface;
 
 /**
  * @method HttpPluginConfigurationInterface configuration()
+ *
+ * ApplicationListenerProviderPluginInterface
  */
 class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, ApplicationListenerProviderPluginInterface
 {
@@ -61,27 +64,31 @@ class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, App
         $this->container = $container;
 
         $container->register(HttpFacadeInterface::class, function (
-            Container $container, LoggerFacadeInterface $loggerFacade
+            Container $container,
+            LoggerFacadeInterface $loggerFacade,
+            ConfigurationHelperFacadeInterface $configurationHelperFacade
         ) {
-            return $this->createFacade($container, $loggerFacade);
+            return $this->createFacade($container, $loggerFacade, $configurationHelperFacade);
         });
     }
 
     /**
      * @param Container $container
+     * @param LoggerFacadeInterface $loggerFacade
+     * @param ConfigurationHelperFacadeInterface $configurationHelperFacade
      *
      * @return HttpFacadeInterface
      */
-    protected function createFacade(Container $container, $loggerFacade): HttpFacadeInterface
+    protected function createFacade(Container $container, LoggerFacadeInterface $loggerFacade, ConfigurationHelperFacadeInterface $configurationHelperFacade): HttpFacadeInterface
     {
         $autowireHelperFactory = $this->createAutowireHelperFactory($container);
         $routeHandlerAbstractFactory = $this->createRouteHandlerAbstractFactory($autowireHelperFactory);
         $routeHandlerExtractorFactory = $this->createRouteHandlerExtractorFactory($routeHandlerAbstractFactory);
         $httpLoggerFactory = $this->createHttpLoggerFactory($loggerFacade);
-        $routeProviderFactory = $this->createRouteProviderFactory();
+        $routeProviderFactory = $this->createRouteProviderFactory($configurationHelperFacade);
         $routeCollectionFactory = $this->createRouteCollectionFactory($routeProviderFactory);
         $requestContextGeneratorFactory = $this->createRequestContextFactory();
-        $urlMatcherFactory = $this->createUrlMatcherFactory($routeCollectionFactory);
+        $urlMatcherFactory = $this->createUrlMatcherFactory($routeCollectionFactory, $loggerFacade);
         $requestHandlerFactory = $this->createRequestHandlerFactory(
             $urlMatcherFactory,
             $httpLoggerFactory,
@@ -122,13 +129,21 @@ class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, App
     }
 
     /**
-     * @param RouteCollectionFactory $routeCollectionFactory
+     * @param RouteCollectionFactoryInterface $routeCollectionFactory
+     * @param LoggerFacadeInterface $loggerFacade
      *
      * @return UrlMatcherFactoryInterface
      */
-    protected function createUrlMatcherFactory(RouteCollectionFactoryInterface $routeCollectionFactory): UrlMatcherFactoryInterface
+    protected function createUrlMatcherFactory(
+        RouteCollectionFactoryInterface $routeCollectionFactory,
+        LoggerFacadeInterface $loggerFacade
+    ): UrlMatcherFactoryInterface
     {
-        return new UrlMatcherFactory($routeCollectionFactory);
+        return new UrlMatcherFactory(
+            $routeCollectionFactory,
+            $this->configuration(),
+            $loggerFacade
+        );
     }
 
     /**
@@ -142,36 +157,45 @@ class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, App
     }
 
     /**
+     * @param ConfigurationHelperFacadeInterface $configurationHelperFacade
+     *
      * @return RouteProviderFactoryInterface
      */
-    protected function createRouteProviderFactory(): RouteProviderFactoryInterface
+    protected function createRouteProviderFactory(ConfigurationHelperFacadeInterface $configurationHelperFacade): RouteProviderFactoryInterface
     {
         $configuration = $this->configuration();
 
         return new RouteProviderFactory(
-            $this->createReaderResolver(),
-            $configuration->getConfigurationDestination()
+            $this->createReaderResolver($configurationHelperFacade),
+            $configurationHelperFacade,
+            $configuration->getConfigurationDestination(),
         );
     }
 
     /**
+     * @param ConfigurationHelperFacadeInterface $configurationHelperFacade
+     *
      * @return ReaderResolverInterface
      */
-    protected function createReaderResolver(): ReaderResolverInterface
+    protected function createReaderResolver(ConfigurationHelperFacadeInterface $configurationHelperFacade): ReaderResolverInterface
     {
         return new ReaderResolver(
-            $this->createReaderResolverCollection()
+            $this->createReaderResolverCollection($configurationHelperFacade)
         );
     }
 
     /**
+     * @param ConfigurationHelperFacadeInterface $configurationHelperFacade
+     *
      * @return iterable<ReaderResolverConfigurationInterface>
      */
-    protected function createReaderResolverCollection(): iterable
+    protected function createReaderResolverCollection(
+        ConfigurationHelperFacadeInterface $configurationHelperFacade
+    ): iterable
     {
         return [
             new ReaderResolverConfiguration(
-                new YamlRouteConfigurationReaderFactory(),
+                new YamlRouteConfigurationReaderFactory($configurationHelperFacade),
                 'yaml'
             ),
 
@@ -246,7 +270,6 @@ class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, App
 
     /**
      * @param Container $container
-     * @return RouteMatchCommand[]
      */
     public function provideConsoleCommands(Container $container): array
     {
@@ -259,9 +282,6 @@ class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, App
         ];
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function getEventListenerProvider(): ListenerProviderInterface
     {
         return new ListenerProvider(

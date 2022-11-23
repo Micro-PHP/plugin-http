@@ -2,13 +2,14 @@
 
 namespace Micro\Plugin\Http\Business\Matcher;
 
-use Micro\Plugin\Http\Exception\RouteNotFoundHttpException;
+use Micro\Plugin\Http\Business\Matcher\Symfony\SymfonyUrlMatcherFactory;
+use Micro\Plugin\Http\Business\Route\RouteCollectionFactoryInterface;
+use Micro\Plugin\Http\Configuration\HttpPluginConfigurationInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Matcher\UrlMatcher as SymfonyUrlMatcher;
+use Symfony\Component\Routing\Matcher\UrlMatcherInterface as SymfonyUrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Route;
-use Symfony\Component\Routing\RouteCollection;
-use Throwable;
 
 class UrlMatcher implements UrlMatcherInterface
 {
@@ -17,21 +18,48 @@ class UrlMatcher implements UrlMatcherInterface
      */
     private ?SymfonyUrlMatcher $symfonyUrlMatcher = null;
 
-    public function __construct(private readonly RouteCollection $routeCollection)
+    /**
+     * @param RouteCollectionFactoryInterface $routeCollectionFactory
+     * @param HttpPluginConfigurationInterface $httpPluginConfiguration
+     * @param LoggerInterface $logger
+     */
+    public function __construct(
+        private readonly RouteCollectionFactoryInterface $routeCollectionFactory,
+        private readonly HttpPluginConfigurationInterface $httpPluginConfiguration,
+        private readonly LoggerInterface $logger
+    )
     {
     }
 
     /**
+     * TODO: InvalidArgumentException !
      * {@inheritDoc}
      */
     public function match(Request $request): Route
     {
+        try {
+            $result = $this->getSymfonyUrlMatcherInstance($request)->matchRequest($request);
+        } catch (\Throwable $throwable) {
+            dd($throwable);
+        }
+        $routeContext = $result['route_context'] ?? [];
+        $routeConfig = $routeContext['route'] ?? [];
+        $route = new Route(
+            $routeConfig['path'],
+            $routeConfig['defaults'] ?? [],
+            $routeConfig['requirements'] ?? [],
+            $routeContext,
+            $routeConfig['host'] ?? '',
+            $routeConfig['schemes'] ?? [],
+            $routeConfig['methods'] ?? []
+        );
 
-        $result = $this->getSymfonyUrlMatcherInstance($request)->matchRequest($request);
-        $this->routeCollection->get($result['_route']);
+        unset($result['route_context']);
+
         $request->query->add($result);
+        $request->attributes->set('route', $route);
 
-        return $this->routeCollection->get($result['_route']);
+        return $route;
     }
 
     /**
@@ -45,7 +73,14 @@ class UrlMatcher implements UrlMatcherInterface
             $requestContext = new RequestContext();
             $requestContext->fromRequest($request);
 
-            $this->symfonyUrlMatcher = new SymfonyUrlMatcher($this->routeCollection, $requestContext);
+            // todo: Injectable
+            $sumf = new SymfonyUrlMatcherFactory(
+                $this->routeCollectionFactory,
+                $this->httpPluginConfiguration,
+                $this->logger
+            );
+
+            $this->symfonyUrlMatcher = $sumf->create($requestContext);
         }
 
         return $this->symfonyUrlMatcher;

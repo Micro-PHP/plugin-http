@@ -2,6 +2,8 @@
 
 namespace Micro\Plugin\Http\Business\RouteProvider;
 
+
+use Micro\Plugin\Configuration\Helper\Facade\ConfigurationHelperFacadeInterface;
 use Micro\Plugin\Http\Business\RouteConfiguration\ReaderResolverInterface;
 use Micro\Plugin\Http\Business\RouteConfiguration\RouteConfigurationInterface;
 use Micro\Plugin\Http\Business\RouteConfiguration\RouteResourceConfiguration;
@@ -17,7 +19,8 @@ class RouteProvider implements RouteProviderInterface
      */
     public function __construct(
         private readonly iterable                          $routeConfigurationDestinationCollection,
-        private readonly ReaderResolverInterface           $readerResolver
+        private readonly ReaderResolverInterface           $readerResolver,
+        private readonly ConfigurationHelperFacadeInterface $configurationHelperFacade
     )
     {
     }
@@ -45,7 +48,6 @@ class RouteProvider implements RouteProviderInterface
             foreach ($this->provideRoutesFromDestinations($destinations, $routeCollection, $parentHandlers) as $resource) {
                 $resources[] = $resource;
             }
-
             $destinations = $resources;
             $resources = [];
 
@@ -53,8 +55,6 @@ class RouteProvider implements RouteProviderInterface
                 break;
             }
         }
-
-        dump($routeCollection);
     }
 
     /**
@@ -72,7 +72,7 @@ class RouteProvider implements RouteProviderInterface
     protected function createRouteResourceConfiguration(?string $name, string $path, ?string $format, ?string $prefix = '', string $parentFileDestination = '', ?string $host = null): RouteResourceConfiguration
     {
         return new RouteResourceConfiguration(
-            $path,
+            $this->configurationHelperFacade->resolvePath($path),
             $format,
             $prefix,
             $parentFileDestination,
@@ -82,7 +82,7 @@ class RouteProvider implements RouteProviderInterface
     }
 
     /**
-     * @param iterable $destinationCollection
+     * @param iterable<RouteResourceConfigurationInterface> $destinationCollection
      * @param RouteCollection $routeCollection
      * @param array $parentHandlers
      *
@@ -129,18 +129,27 @@ class RouteProvider implements RouteProviderInterface
     {
         $routeData = $configuration->getConfiguration();
 
-        $prefix = rtrim($prefix, '/');
-        $path = ltrim($routeData['path'], '/' );
-
-        $path = $prefix . '/'. $path;
-        $host = $routeData['host'] ?? $parentHost;
+        $path = $prefix . $routeData['path'];
+        $path = explode('/', $path);
+        $path = array_filter($path);
+        $path = '/' . ltrim(implode('/', $path));
+        $routeData['path'] = $path;
+        $host = $routeData['host'] = $routeData['host'] ?? $parentHost;
         $defaults = $routeData['defaults'] ?? [];
         $requirements = $routeData['requirements'] ?? [];
         $options = $routeData['options'] ?? [];
         $schemes = $routeData['schemes'] ?? [];
         $methods = $routeData['methods'] ?? [];
         $condition = $routeData['condition'] ?? null;
+
         $options['handler'] = $configuration->getHandlers();
+        $options['route_name'] = $configuration->getName();
+        $routeContext = [
+            'options' => $options,
+            'route' => $routeData,
+        ];
+
+        $defaults['route_context'] = $routeContext;
 
         return new Route(
             $path,

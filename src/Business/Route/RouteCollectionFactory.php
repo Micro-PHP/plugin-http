@@ -20,7 +20,9 @@ class RouteCollectionFactory implements RouteCollectionFactoryInterface
     {
         $routeCollection = new RouteCollection();
 
-        $this->routeProviderFactory->create()->provide($routeCollection);
+        $this->routeProviderFactory
+            ->create()
+            ->provide($routeCollection);
 
         return $routeCollection;
     }

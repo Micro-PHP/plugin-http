@@ -14,6 +14,7 @@ use Micro\Plugin\Http\Handler\Request\RequestHandlerContext;
 use Micro\Plugin\Http\Handler\Response\ResponseHandlerContext;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Route;
 use Throwable;
@@ -49,41 +50,52 @@ class RequestHandler implements RequestHandlerInterface
         try {
             $route = $this->matchRoute($request);
             $response = $this->handle($route, $request);
-
-        //    $this->httpLogger->access($request, $response);
-        } catch (HttpException $exception) {
-          //  $response = $this->createExceptionResponse($request, $exception);
-
-           // $this->httpLogger->access($request, $response);
-        } catch (\Throwable $exception) {
+        } catch (HttpException $e) {
+            $exception = $e;
+        } catch (\Throwable $internalException) {
+            $exception = $internalException;
             $response = $this->createExceptionResponse($request, $exception);
+            $this->httpLogger->error($exception, $request, $response, $exception->getTrace());
+        }
 
-           // $this->httpLogger->error($exception, $request, $response, $exception->getTrace());
-           // $this->httpLogger->access($request, $response);
-
-            throw $exception;
-        } finally {
-            if(!$route) {
-                return;
-            }
-
-            $context = new ResponseHandlerContext($request, $response, $exception);
-            foreach ($this->handlerExtractor->extractResponseHandlers($route) as $handler) {
-                $handler->handle($context);
-            }
-
-            $response = $context->getResponse();
-
-            if(!($response instanceof Response)) {
-                throw new \RuntimeException(sprintf(
-                    'Response should be %s. %s given', Response::class, gettype($response)));
-            }
-
+        if(!$route) {
             $response->send();
+            $this->httpLogger->access($request, $response);
+
+            return;
+        }
+
+        $context = new ResponseHandlerContext($request, $response, $exception);
+        foreach ($this->handlerExtractor->extractResponseHandlers($route) as $handler) {
+            try {
+                $handler->handle($context);
+            } catch (\Throwable $e) {
+                $context->setException($e);
+            }
+        }
+
+        $exceptionResp = $context->getException();
+        $response = $context->getResponse();
+        if($exceptionResp) {
+            $response = $this->createExceptionResponse($request, $exceptionResp, $response);
+            $this->httpLogger->warning($request, $response, $exceptionResp->getMessage(), $exceptionResp->getTrace());
+        }
+
+        if(!($response instanceof Response)) {
+            //$this->httpLogger->error($exception, $request, $response, $exception?->getTrace());
+            throw new \RuntimeException(sprintf(
+                'Response should be %s. %s given', Response::class, gettype($response)));
+        }
+
+        $response->send();
+        $this->httpLogger->access($request, $response);
+
+        if($exception) {
+            throw $exception;
         }
     }
 
-    protected function createExceptionResponse(Request $request, \Throwable $throwable): Response
+    protected function createExceptionResponse(Request $request, \Throwable $throwable, Response $response = null): Response
     {
         $status = 500;
         $message = 'Internal sever error.';
@@ -93,7 +105,14 @@ class RequestHandler implements RequestHandlerInterface
             $status = $throwable->getCode();
         }
 
-        return new Response($message, $status);
+        if($response === null) {
+            $response = new Response();
+        }
+
+        $response->setStatusCode($status);
+        $response->setContent($message);
+
+        return $response;
     }
 
     /**
@@ -105,7 +124,9 @@ class RequestHandler implements RequestHandlerInterface
         try {
             return $this->urlMatcher->match($request);
         } catch (ResourceNotFoundException $exception) {
-            throw new HttpNotFoundException('');
+            throw new HttpNotFoundException('', $exception);
+        } catch (MethodNotAllowedException $exception) {
+            throw new \Micro\Plugin\Http\Exception\MethodNotAllowedException('', $exception);
         }
     }
 
@@ -126,6 +147,10 @@ class RequestHandler implements RequestHandlerInterface
                 $handler->handle($handlerContext);
             }
 
+        } catch (HttpException $exception) {
+            $this->httpLogger->warning($request, null, $exception->getMessage());
+
+            throw $exception;
         } catch (ResourceNotFoundException $exception) {
             $this->httpLogger->warning($request, null, $exception->getMessage());
 
@@ -136,7 +161,9 @@ class RequestHandler implements RequestHandlerInterface
             return $request;
         });
 
-        $controller = $route->getOption('controller');
+        $routeOptions = $route->getOption('options');
+
+        $controller = $routeOptions['controller'] ?? null;
 
         if(!$controller) {
             $this->httpLogger->warning(
@@ -157,7 +184,7 @@ class RequestHandler implements RequestHandlerInterface
         $controllerObjectCallback = $this->autowireHelperFactory->autowire($controller);
         $controllerObject = $controllerObjectCallback();
 
-        $action = $route->getOption('action') ?? '';
+        $action = $routeOptions['action'] ?? $routeOptions['route_name'];
 
         if(!method_exists($controllerObject, $action)) {
             $this->httpLogger->warning($request, null, sprintf('The method "%s()" in the controller "%s" is not declared.', $action, $controller));
