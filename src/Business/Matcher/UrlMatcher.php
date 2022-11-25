@@ -37,11 +37,7 @@ class UrlMatcher implements UrlMatcherInterface
      */
     public function match(Request $request): Route
     {
-        try {
-            $result = $this->getSymfonyUrlMatcherInstance($request)->matchRequest($request);
-        } catch (\Throwable $throwable) {
-            dd($throwable);
-        }
+        $result = $this->getSymfonyUrlMatcherInstance($request)->matchRequest($request);
         $routeContext = $result['route_context'] ?? [];
         $routeConfig = $routeContext['route'] ?? [];
         $route = new Route(
