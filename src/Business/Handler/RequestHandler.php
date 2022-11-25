@@ -51,6 +51,7 @@ class RequestHandler implements RequestHandlerInterface
             $route = $this->matchRoute($request);
             $response = $this->handle($route, $request);
         } catch (HttpException $e) {
+            $response = $this->createExceptionResponse($request, $e);
             $exception = $e;
         } catch (\Throwable $internalException) {
             $exception = $internalException;
