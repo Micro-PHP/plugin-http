@@ -5,11 +5,8 @@ namespace Micro\Plugin\Http;
 use Micro\Component\DependencyInjection\Autowire\AutowireHelperFactory;
 use Micro\Component\DependencyInjection\Autowire\AutowireHelperFactoryInterface;
 use Micro\Component\DependencyInjection\Container;
-use Micro\Component\EventEmitter\ListenerProviderInterface;
 use Micro\Framework\Kernel\Plugin\AbstractPlugin;
-use Micro\Kernel\App\Listener\ApplicationListenerProviderPluginInterface;
 use Micro\Plugin\Configuration\Helper\Facade\ConfigurationHelperFacadeInterface;
-use Micro\Plugin\Console\CommandProviderInterface;
 use Micro\Plugin\Http\Business\Context\RequestContextFactory;
 use Micro\Plugin\Http\Business\Context\RequestContextFactoryInterface;
 use Micro\Plugin\Http\Business\Handler\RequestHandlerFactory;
@@ -34,15 +31,10 @@ use Micro\Plugin\Http\Business\RouteProvider\RouteProviderFactoryInterface;
 use Micro\Plugin\Http\Business\UrlGenerator\UrlGeneratorFactory;
 use Micro\Plugin\Http\Business\UrlGenerator\UrlGeneratorFactoryInterface;
 use Micro\Plugin\Http\Configuration\HttpPluginConfigurationInterface;
-use Micro\Plugin\Http\Console\RouteExecuteCommand;
-use Micro\Plugin\Http\Console\RouteMatchCommand;
-use Micro\Plugin\Http\Console\UrlGenerateCommand;
 use Micro\Plugin\Http\Facade\HttpFacade;
 use Micro\Plugin\Http\Facade\HttpFacadeInterface;
 use Micro\Plugin\Http\Handler\HandlerAbstractFactory;
 use Micro\Plugin\Http\Handler\HandlerAbstractFactoryInterface;
-use Micro\Plugin\Http\Listener\ApplicationStartListener;
-use Micro\Plugin\Http\Listener\ListenerProvider;
 use Micro\Plugin\Logger\LoggerFacadeInterface;
 use Psr\Container\ContainerInterface;
 
@@ -51,7 +43,7 @@ use Psr\Container\ContainerInterface;
  *
  * ApplicationListenerProviderPluginInterface
  */
-class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, ApplicationListenerProviderPluginInterface
+class HttpPlugin extends AbstractPlugin
 {
 
     protected ?ContainerInterface $container;
@@ -266,26 +258,5 @@ class HttpPlugin extends AbstractPlugin implements CommandProviderInterface, App
     protected function createAutowireHelperFactory(ContainerInterface $container): AutowireHelperFactoryInterface
     {
         return new AutowireHelperFactory($container);
-    }
-
-    /**
-     * @param Container $container
-     */
-    public function provideConsoleCommands(Container $container): array
-    {
-        $facade = $container->get(HttpFacadeInterface::class);
-
-        return [
-            new RouteMatchCommand($facade),
-            new UrlGenerateCommand($facade),
-            new RouteExecuteCommand($facade)
-        ];
-    }
-
-    public function getEventListenerProvider(): ListenerProviderInterface
-    {
-        return new ListenerProvider(
-            new ApplicationStartListener($this->container->get(HttpFacadeInterface::class))
-        );
     }
 }
