@@ -45,7 +45,7 @@ class ApplicationStartListener implements EventListenerInterface
     /**
      * {@inheritDoc}
      */
-    public function supports(EventInterface $event): bool
+    public static function supports(EventInterface $event): bool
     {
         return $event instanceof ApplicationReadyEvent;
     }
